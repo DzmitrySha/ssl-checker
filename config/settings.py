@@ -10,6 +10,8 @@ from .env_parsers import env_bool, env_int, env_str
 
 load_dotenv()
 
+LANGUAGE = env_str("LANGUAGE", "ru").strip().lower()
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _logs_dir_raw = env_str("LOGS_DIR", "").strip()
 LOGS_DIR = Path(_logs_dir_raw).expanduser().resolve() if _logs_dir_raw else _PROJECT_ROOT / "logs"

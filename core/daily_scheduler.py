@@ -15,13 +15,14 @@ from config.settings import (
 )
 from core.batch_report import run_batch_report
 from core.logger import logger
+from locales import _
 
 
 def _scheduled_batch() -> None:
     try:
         run_batch_report()
     except Exception:
-        logger.exception("Ошибка при выполнении пакетной проверки по расписанию")
+        logger.exception(_("scheduler_batch_error"))
 
 
 def run_daily_scheduler() -> None:
@@ -30,7 +31,7 @@ def run_daily_scheduler() -> None:
     scheduler = BlockingScheduler(timezone=tz)
 
     def _shutdown(signum: int, _frame: object | None) -> None:
-        logger.info("Сигнал {}, останавливаем планировщик...", signum)
+        logger.info(_("scheduler_shutdown", signum=signum))
         if scheduler.running:
             scheduler.shutdown(wait=False)
 
@@ -46,14 +47,11 @@ def run_daily_scheduler() -> None:
         replace_existing=True,
     )
     logger.info(
-        "Планировщик: каждый день в {:02d}:{:02d} ({})",
-        DAILY_BATCH_HOUR,
-        DAILY_BATCH_MINUTE,
-        tz,
+        _("scheduler_start", hour=DAILY_BATCH_HOUR, minute=DAILY_BATCH_MINUTE, tz=tz),
     )
 
     if RUN_BATCH_ON_START:
-        logger.info("Пакетная проверка при старте (RUN_BATCH_ON_START=true)")
+        logger.info(_("scheduler_batch_on_start"))
         _scheduled_batch()
 
     scheduler.start()

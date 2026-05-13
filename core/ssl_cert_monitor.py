@@ -26,10 +26,10 @@ from core.logger import logger
 from core.models import AlertKind, CheckResult, ErrorCode
 from core.site_list import load_site_entries, normalize_host_port
 from core.status_policy import (
-    CERT_DATE_CHAIN_NOTE,
     build_status_output,
     format_error_notification_markdown,
 )
+from locales import _
 from notifiers.notify import send_user_notification
 from notifiers.windows_notifier import show_window_alert
 
@@ -49,10 +49,10 @@ class PeerCertSummary(NamedTuple):
 
 def _verify_log_caption(verify: bool | str) -> str:
     if verify is False:
-        return "режим TLS_VERIFY=false (цепочка доверия не проверяется)"
+        return _("log_tls_verify_false")
     if isinstance(verify, str):
-        return f"TLS_VERIFY — дополнительный корневой PEM: {verify}"
-    return "TLS_VERIFY=true (системные корневые сертификаты Windows)"
+        return _("log_tls_verify_cafile", cafile=verify)
+    return _("log_tls_verify_true")
 
 
 def _cert_datetime_display(dt: datetime) -> str:
@@ -68,7 +68,7 @@ def _dt_utc_from_crypto(dt: datetime) -> datetime:
 
 def _peer_summary_from_der(der: bytes) -> PeerCertSummary:
     if cryptography_x509 is None or cryptography_default_backend is None:
-        raise RuntimeError("Нужен пакет cryptography для разбора сертификата")
+        raise RuntimeError(_("log_need_cryptography"))
     cert = cryptography_x509.load_der_x509_certificate(der, cryptography_default_backend())
     nb_raw = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before
     na_raw = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after
@@ -88,7 +88,6 @@ def _read_peer_summary(host: str, port: int, ctx: ssl.SSLContext) -> PeerCertSum
             return _peer_summary_from_der(der)
 
 
-# ========= TLS: хост, контекст, чтение сертификата =========
 def _tls_context(verify: bool | str) -> ssl.SSLContext:
     if verify is False:
         ctx = ssl.create_default_context()
@@ -102,7 +101,6 @@ def _tls_context(verify: bool | str) -> ssl.SSLContext:
             ctx.verify_mode = ssl.CERT_REQUIRED
             ctx.load_verify_locations(cafile=verify)
             return ctx
-        # Иначе: системные корни Windows + PEM-файл корня издателя — см. TLS_SITE_CHECK_TRUST_ONLY_CAFILE
         ctx = ssl.create_default_context()
         ctx.load_verify_locations(cafile=verify)
         return ctx
@@ -117,7 +115,7 @@ def check_ssl_expiry(
 ) -> CheckResult:
     verify = TLS_VERIFY if tls_verify is None else tls_verify
     host, port = normalize_host_port(site, site_port)
-    logger.info("Проверка TLS: {}:{}, {}", host, port, _verify_log_caption(verify))
+    logger.info(_("log_check_started", host=host, port=port, caption=_verify_log_caption(verify)))
 
     def ok_pack(peer: PeerCertSummary, chain_trusted: bool) -> CheckResult:
         expiry_utc = peer.not_after_utc
@@ -125,15 +123,14 @@ def check_ssl_expiry(
         end_d = expiry_utc.astimezone(timezone.utc).date()
         days = (end_d - today).days
         line = _cert_datetime_display(expiry_utc)
+        chain_note = ""
         if not chain_trusted:
+            from core.status_policy import CERT_DATE_CHAIN_NOTE
             line += CERT_DATE_CHAIN_NOTE
+            chain_note = CERT_DATE_CHAIN_NOTE
         not_before_line = _cert_datetime_display(peer.not_before_utc)
         logger.info(
-            "Сертификат {}:{} — дата окончания (UTC): {}, осталось календарных дней: {}",
-            host,
-            port,
-            line,
-            days,
+            _("log_cert_expiry", host=host, port=port, expiry=line, days=days),
         )
         return CheckResult(
             host=host,
@@ -153,62 +150,50 @@ def check_ssl_expiry(
         return ok_pack(_read_peer_summary(host, port, ctx), verify is not False)
     except ssl.SSLError as e:
         if isinstance(verify, str):
-            logger.info(
-                "Указанный в TLS_VERIFY файл — это корневой сертификат центра сертификации (издателя). "
-                "Доверяются только цепочки, которые этим издателем подписаны. Самоподписанный сертификат сайта "
-                "(часто «Kubernetes Ingress … Fake Certificate») таким файлом «не лечится» — на сервере нужен "
-                "сертификат, выпущенный вашим центром сертификации или публичным доверенным издателем."
-            )
+            logger.info(_("log_tls_verify_cafile_explanation"))
         if TLS_READ_EXPIRY_ON_VERIFY_FAIL and verify is not False:
-            logger.warning("Строгая проверка TLS для {}:{} не прошла: {}", host, port, e)
-            logger.info("Повторное подключение без проверки цепочки — только чтение срока с сертификата сайта.")
+            logger.warning(_("log_tls_strict_failed", host=host, port=port, error=e))
+            logger.info(_("log_tls_retry_no_verify"))
             try:
                 return ok_pack(_read_peer_summary(host, port, _tls_context(False)), False)
             except (ssl.SSLError, OSError, TimeoutError, socket.timeout) as e2:
-                logger.error("Повторная попытка для {}:{} не удалась: {}", host, port, e2)
+                logger.error(_("log_tls_retry_failed", host=host, port=port, error=e2))
             except (RuntimeError, ValueError) as e2:
                 logger.error(
-                    "Разбор сертификата (cryptography) для {}:{}: {}",
-                    host,
-                    port,
-                    e2,
+                    _("log_cert_parse_failed_crypto", host=host, port=port, error=e2),
                 )
                 return CheckResult(host, port, False, None, None, False, ErrorCode.CERT_PARSE_FAILED)
         else:
-            logger.error("Ошибка TLS при подключении к {}:{}: {}", host, port, e)
-        logger.info(
-            "Подсказка: TLS_VERIFY — true (системные корни Windows), false или путь к PEM корневого сертификата издателя."
-        )
+            logger.error(_("log_tls_error", host=host, port=port, error=e))
+        logger.info(_("log_tls_verify_hint"))
         return CheckResult(host, port, False, None, None, False, ErrorCode.SSL_VERIFY_FAILED)
     except (TimeoutError, socket.timeout):
         logger.error(
-            "Таймаут TLS для {}:{} (ожидание ответа {:.0f} с).",
-            host,
-            port,
-            _TLS_TIMEOUT_SEC,
+            _("log_timeout", host=host, port=port, timeout=_TLS_TIMEOUT_SEC),
         )
         return CheckResult(host, port, False, None, None, False, ErrorCode.TIMEOUT)
     except NoPeerCertError:
-        logger.error("Узел {}:{} не прислал сертификат при TLS-рукопожатии.", host, port)
+        logger.error(_("log_no_peer_cert", host=host, port=port))
         return CheckResult(host, port, False, None, None, False, ErrorCode.NO_PEER_CERT)
     except OSError as e:
-        logger.error("Ошибка сети или сокета {}:{}: {}", host, port, e)
+        logger.error(_("log_socket_error", host=host, port=port, error=e))
         return CheckResult(host, port, False, None, None, False, ErrorCode.CONNECTION_ERROR)
     except (RuntimeError, ValueError) as e:
-        logger.error("Не удалось разобрать сертификат {}:{} (библиотека cryptography): {}", host, port, e)
+        logger.error(_("log_cert_parse_failed", host=host, port=port, error=e))
         return CheckResult(host, port, False, None, None, False, ErrorCode.CERT_PARSE_FAILED)
 
 
 def _api_notification_title_error(host: str, dialog_title: str) -> str:
-    return f"{dialog_title} — {host}"
+    return _("api_title_error", title=dialog_title, host=host)
 
 
 def _api_notification_title_status(host: str, output_title: str) -> str:
     t = output_title.strip()
-    return f"{t} — {host}" if t else f"Проверка TLS — {host}"
+    if t:
+        return _("api_title_status", title=t, host=host)
+    return _("api_title_fallback", host=host)
 
 
-# ========= main =========
 def run_monitor(
     *,
     site: str | None = None,

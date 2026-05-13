@@ -6,8 +6,9 @@ from enum import Enum
 
 from config.settings import CRITICAL_DAYS, WARN_DAYS
 from core.models import AlertKind, CheckResult, StatusOutput
+from locales import _
 
-CERT_DATE_CHAIN_NOTE = " (цепочка доверия к издателю сертификата не проверялась)"
+CERT_DATE_CHAIN_NOTE = _("chain_note_suffix")
 
 
 class CheckOutcomeLevel(str, Enum):
@@ -66,31 +67,25 @@ def _cert_details_block(
 ) -> str:
     lines: list[str] = []
     if issuer:
-        lines.append(f"Издатель (кто выдал сертификат): {_friendly_cn(issuer)}")
+        lines.append(_("cert_issuer_label", issuer=_friendly_cn(issuer)))
     if subject:
-        lines.append(f"Субъект (имя в сертификате): {_friendly_cn(subject)}")
+        lines.append(_("cert_subject_label", subject=_friendly_cn(subject)))
     if not_before_line:
-        lines.append(f"Начало действия: {not_before_line}")
+        lines.append(_("cert_not_before_label", date=not_before_line))
     if not lines:
         return ""
-    lines.append(f"Окончание действия: {end}")
+    lines.append(_("cert_not_after_label", date=end))
     return "\n".join(lines)
 
 
 def _chain_note_block() -> str:
-    return (
-        "\n\nПримечание: не прошла проверка **цепочки доверия** — программа не смогла связать сертификат сайта "
-        "с известными в этой среде издателями (центрами сертификации). В браузере сайт тоже может не открываться.\n\n"
-        "Что можно сделать: в параметре TLS_VERIFY указать **путь к файлу корневого сертификата вашей организации** "
-        "(текстовый формат PEM); либо установить этот корневой сертификат в Windows в раздел "
-        "«Доверенные корневые центры сертификации»; либо исправить неполную цепочку на самом сервере сайта."
-    )
+    return _("chain_note_block")
 
 
 def _chain_footer_md(chain_ok: bool) -> str:
     if chain_ok:
         return ""
-    return "\n\n_Срок взят из поля действия сертификата сайта (издатель не проверялся)._"
+    return _("chain_footer_untrusted")
 
 
 def _notify_ok_md(
@@ -102,61 +97,63 @@ def _notify_ok_md(
     subject: str | None,
     not_before_line: str | None,
 ) -> str:
-    chain_txt = "подтверждена" if chain_ok else "не подтверждена"
+    chain_txt = _("chain_trusted") if chain_ok else _("chain_untrusted")
     parts: list[str] = [
-        "### Сертификат в порядке",
+        f"### {_('notify_ok_title')}",
         "",
-        f"**Домен:** `{host}`",
-        f"**Осталось кал. дней:** `{days_left}`",
+        _(f"notify_ok_domain", host=host),
+        _(f"notify_ok_days_left", days=days_left),
     ]
     if not_before_line:
-        parts.append(f"**Начало действия:** `{not_before_line}`")
-    parts.append(f"**Окончание действия:** `{end}`")
-    parts.append(f"**Цепочка доверия:** {chain_txt}")
+        parts.append(_("notify_ok_not_before", date=not_before_line))
+    parts.append(_("notify_ok_not_after", date=end))
+    parts.append(_("notify_ok_chain", chain=chain_txt))
     if issuer:
-        parts.append(f"**Издатель:** {_friendly_cn(issuer)}")
+        parts.append(_("notify_ok_issuer", issuer=_friendly_cn(issuer)))
     if subject:
-        parts.append(f"**Субъект:** {_friendly_cn(subject)}")
+        parts.append(_("notify_ok_subject", subject=_friendly_cn(subject)))
     return "\n".join(parts)
 
 
 def _notify_expired_md(host: str, end: str, days_left: int, chain_ok: bool) -> str:
     if days_left < 0:
-        conclusion = f"Просрочен на `{-days_left}` кал. дней"
-        heading = "### Сертификат просрочен"
+        conclusion_key = "notify_expired_conclusion_overdue"
+        conclusion_val = -days_left
+        heading_key = "notify_expired_heading"
     else:
-        conclusion = "Дата окончания — сегодня"
-        heading = "### Срок действия истекает сегодня"
+        conclusion_key = "notify_expired_conclusion_today"
+        conclusion_val = None
+        heading_key = "notify_expired_heading_today"
     parts = [
-        heading,
+        _(heading_key),
         "",
-        f"**Домен:** `{host}`",
-        f"**Окончание действия:** `{end}`",
-        f"**Заключение:** {conclusion}",
+        _("notify_ok_domain", host=host),
+        _("notify_ok_not_after", date=end),
+        _(conclusion_key, days=conclusion_val) if conclusion_val is not None else f"**Conclusion:** {_(conclusion_key)}",
     ]
     return "\n".join(parts) + _chain_footer_md(chain_ok)
 
 
 def _notify_critical_md(host: str, end: str, days_left: int, chain_ok: bool) -> str:
     parts = [
-        "### Критическое предупреждение",
+        f"### {_('notify_critical_heading')}",
         "",
-        f"**Домен:** `{host}`",
-        f"**Окончание действия:** `{end}`",
-        f"**Осталось кал. дней:** `{days_left}` (порог: < `{CRITICAL_DAYS}`)",
-        "**Заключение:** запланировать замену сертификата.",
+        _(f"notify_ok_domain", host=host),
+        _(f"notify_ok_not_after", date=end),
+        _("notify_critical_days_left", days=days_left, threshold=CRITICAL_DAYS),
+        _("notify_critical_conclusion"),
     ]
     return "\n".join(parts) + _chain_footer_md(chain_ok)
 
 
 def _notify_warn_md(host: str, end: str, days_left: int, chain_ok: bool) -> str:
     parts = [
-        "### Предупреждение",
+        f"### {_('notify_warn_heading')}",
         "",
-        f"**Домен:** `{host}`",
-        f"**Окончание действия:** `{end}`",
-        f"**Осталось кал. дней:** `{days_left}` (порог: < `{WARN_DAYS}`)",
-        "**Заключение:** подготовить обновление сертификата.",
+        _(f"notify_ok_domain", host=host),
+        _(f"notify_ok_not_after", date=end),
+        _("notify_warn_days_left", days=days_left, threshold=WARN_DAYS),
+        _("notify_warn_conclusion"),
     ]
     return "\n".join(parts) + _chain_footer_md(chain_ok)
 
@@ -164,14 +161,13 @@ def _notify_warn_md(host: str, end: str, days_left: int, chain_ok: bool) -> str:
 def _notify_chain_md(host: str, end: str, days_left: int) -> str:
     return "\n".join(
         [
-            "### Предупреждение (цепочка доверия)",
+            f"### {_('notify_chain_heading')}",
             "",
-            f"**Домен:** `{host}`",
-            f"**Окончание действия:** `{end}`",
-            f"**Осталось кал. дней:** `{days_left}`",
+            _(f"notify_ok_domain", host=host),
+            _(f"notify_ok_not_after", date=end),
+            _(f"notify_ok_days_left", days=days_left),
             "",
-            "_Издателя сертификата (центр сертификации) не удалось подтвердить из доверенного хранилища — "
-            "в браузере сайт может не открываться._",
+            _("notify_chain_note"),
         ]
     )
 
@@ -180,11 +176,11 @@ def format_error_notification_markdown(*, title: str, host: str, body: str) -> s
     one = body.replace("\n", " ").strip()
     return "\n".join(
         [
-            "### Ошибка проверки TLS",
+            f"### {_('error_notification_title')}",
             "",
-            f"**Домен:** `{host}`",
-            f"**Тип:** {title}",
-            f"**Детали:** {one}",
+            _(f"error_notification_domain", host=host),
+            _(f"error_notification_type", title=title),
+            _(f"error_notification_details", body=one),
         ]
     )
 
@@ -206,46 +202,37 @@ def build_status_output(
 
     if level is CheckOutcomeLevel.EXPIRED_OR_TODAY:
         if days_left < 0:
-            title = "Сертификат просрочен"
-            head = f"Сертификат для «{host}» просрочен на {-days_left} календарных дней."
+            title = _("status_expired_title")
+            head = _("status_expired_head_overdue", host=host, days=-days_left)
         else:
-            title = "Срок действия — сегодня"
-            head = f"Сертификат для «{host}»: дата окончания по сертификату — сегодня. Запланируйте замену."
-        body = f"{head}\n{cd}" if cd else f"{head}\nОкончание действия: {end}."
+            title = _("status_expired_title")
+            head = _("status_expired_head_today", host=host)
+        body = f"{head}\n{cd}" if cd else f"{head}\n{_('status_expired_body_tail', end=end)}"
         ntxt = _notify_expired_md(host, end, days_left, chain_ok)
         return StatusOutput(title, body + note, ntxt, AlertKind.ERROR)
 
     if level is CheckOutcomeLevel.CRITICAL_WINDOW:
-        title = "Критическое предупреждение"
-        head = (
-            f"Для «{host}» до окончания сертификата осталось дней: {days_left} "
-            f"(меньше порога {CRITICAL_DAYS} календарных дней)."
-        )
-        body = f"{head}\n{cd}" if cd else f"{head}\nОкончание действия: {end}."
+        title = _("status_critical_title")
+        head = _("status_critical_head", host=host, days=days_left, threshold=CRITICAL_DAYS)
+        body = f"{head}\n{cd}" if cd else f"{head}\n{_('status_expired_body_tail', end=end)}"
         ntxt = _notify_critical_md(host, end, days_left, chain_ok)
         return StatusOutput(title, body + note, ntxt, AlertKind.ERROR)
 
     if level is CheckOutcomeLevel.WARN_WINDOW:
-        title = "Предупреждение"
-        head = (
-            f"Для «{host}» до окончания сертификата осталось дней: {days_left} "
-            f"(меньше порога {WARN_DAYS} календарных дней)."
-        )
-        body = f"{head}\n{cd}" if cd else f"{head}\nОкончание действия: {end}."
+        title = _("status_warn_title")
+        head = _("status_warn_head", host=host, days=days_left, threshold=WARN_DAYS)
+        body = f"{head}\n{cd}" if cd else f"{head}\n{_('status_expired_body_tail', end=end)}"
         ntxt = _notify_warn_md(host, end, days_left, chain_ok)
         return StatusOutput(title, body + note, ntxt, AlertKind.WARNING)
 
     if level is CheckOutcomeLevel.CHAIN_ONLY_WARNING:
-        title = "Проверка TLS"
-        head = (
-            f"По дате на сертификате для «{host}» до окончания ещё {days_left} календарных дней, "
-            "но цепочка доверия к издателю не подтверждена."
-        )
-        body = f"{head}\n{cd}" if cd else f"{head}\nОкончание действия: {end}."
+        title = _("status_chain_title")
+        head = _("status_chain_head", host=host, days=days_left)
+        body = f"{head}\n{cd}" if cd else f"{head}\n{_('status_expired_body_tail', end=end)}"
         ntxt = _notify_chain_md(host, end, days_left)
         return StatusOutput(title, body + note, ntxt, AlertKind.WARNING)
 
-    head_ok = f"Сертификат для «{host}» в порядке. До окончания осталось календарных дней: {days_left}."
-    console = f"{head_ok}\n{cd}" if cd else f"{head_ok}\nОкончание действия: {end}."
+    head_ok = _("status_ok_head", host=host, days=days_left)
+    console = f"{head_ok}\n{cd}" if cd else f"{head_ok}\n{_('status_expired_body_tail', end=end)}."
     notify = _notify_ok_md(host, days_left, end, chain_ok, issuer, subject, not_before_line)
     return StatusOutput("", console, notify, AlertKind.NONE)

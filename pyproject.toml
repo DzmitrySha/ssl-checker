@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = ["main"]
-packages = ["core", "config", "notifiers"]
+packages = ["core", "config", "notifiers", "locales"]
 
 [tool.uv]
 package = true

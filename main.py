@@ -4,10 +4,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from config.settings import SITE_PORT
+from config.settings import LANGUAGE, SITE_PORT
 from core.logger import logger
 from core.batch_report import run_batch_report
 from core.ssl_cert_monitor import run_monitor
+from locales import _, init_translation, get_available_langs
 
 
 class _CliHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -15,64 +16,56 @@ class _CliHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDesc
 
 
 def main() -> None:
+    init_translation(LANGUAGE)
+
     if not Path(".env").is_file():
-        logger.warning("Файл .env не найден. Скопируйте шаблон: .env.example -> .env")
+        logger.warning(_("env_file_not_found"))
 
     parser = argparse.ArgumentParser(
-        description=(
-            "Мониторинг TLS-сертификата. "
-            "Режим по умолчанию — разовая проверка из CLI: один узел (--site) или весь список из .env, "
-            "если --site не задан."
-        ),
+        description=_("cli_description"),
         formatter_class=_CliHelpFormatter,
-        epilog=(
-            "Примеры:\n"
-            "  %(prog)s --help\n"
-            "  %(prog)s --site example.com\n"
-            "  %(prog)s --site https://example.com:8443 --json\n"
-            "  %(prog)s --port 443 --json\n"
-            "  %(prog)s --batch\n"
-            "  %(prog)s --batch --notify-always\n"
-            "  %(prog)s --schedule"
-        ),
+        epilog=_("cli_epilog_examples"),
     )
     parser.add_argument(
         "--site",
         metavar="HOST_OR_URL",
-        help="Один хост или URL; без этого флага берётся список SITES_TO_CHECK / SITES_FILE из .env",
+        help=_("cli_arg_site_help"),
     )
-    parser.add_argument("--port", type=int, default=SITE_PORT, help="Порт TLS, если в --site нет порта")
-    parser.add_argument("--json", action="store_true", dest="as_json", help="Результат в JSON (stdout)")
+    parser.add_argument("--port", type=int, default=SITE_PORT, help=_("cli_arg_port_help"))
+    parser.add_argument("--json", action="store_true", dest="as_json", help=_("cli_arg_json_help"))
     parser.add_argument(
         "--notify-always",
         action="store_true",
-        help=(
-            "Принудительно отправить уведомление в API/Mattermost даже если всё в порядке "
-            "(отладка). С --batch — полный отчёт; при разовой проверке — сообщение и при «зелёном» сертификате."
-        ),
+        help=_("cli_arg_notify_always_help"),
+    )
+    parser.add_argument(
+        "--lang",
+        choices=get_available_langs(),
+        help=_("cli_arg_lang_help"),
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--batch",
         action="store_true",
-        help="Один раз: все узлы из списка и один сводный отчёт (уведомления по настройкам .env)",
+        help=_("cli_arg_batch_help"),
     )
     mode.add_argument(
         "--schedule",
         action="store_true",
-        help="Долгоживущий процесс: ежедневная пакетная проверка по времени из .env (удобно в Docker)",
+        help=_("cli_arg_schedule_help"),
     )
     args = parser.parse_args()
 
+    init_translation(args.lang)
+
     if args.batch and args.site:
-        parser.error("сочетание --batch и --site не поддерживается: для одного узла укажите только --site")
+        parser.error(_("cli_error_batch_and_site"))
     if args.schedule and (args.site or args.as_json):
         parser.error(
-            "режим --schedule только для фонового расписания; "
-            f"ручная проверка — без --schedule (см. {parser.prog} --help)"
+            _("cli_error_schedule_with_site_or_json"),
         )
     if args.schedule and args.notify_always:
-        parser.error("флаг --notify-always не используется в режиме --schedule")
+        parser.error(_("cli_error_schedule_with_notify_always"))
 
     if args.batch:
         code = run_batch_report(force_remote_notification=args.notify_always)

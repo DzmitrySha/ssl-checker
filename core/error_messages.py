@@ -3,87 +3,85 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from core.models import ErrorCode
+from locales import _
 
 
 @dataclass(frozen=True, slots=True)
 class ErrorPresentation:
-    """Короткая метка для сводки + заголовок и тело диалога (плейсхолдер {host})."""
-
-    batch_label: str
-    dialog_title: str
-    dialog_body: str
+    batch_label_key: str
+    dialog_title_key: str
+    dialog_body_key: str
 
 
-_DEFAULT_UNKNOWN = ErrorPresentation(
-    batch_label="неизвестная ошибка",
-    dialog_title="Ошибка проверки",
-    dialog_body="Проверка «{host}» завершилась с ошибкой. Подробности — в журнале приложения (папка logs).",
+def _ep(
+    batch_label_key: str,
+    dialog_title_key: str,
+    dialog_body_key: str,
+) -> ErrorPresentation:
+    return ErrorPresentation(batch_label_key, dialog_title_key, dialog_body_key)
+
+
+_UNKNOWN_KEYS = ErrorPresentation(
+    batch_label_key="error_batch_unknown",
+    dialog_title_key="error_dialog_title_unknown",
+    dialog_body_key="error_dialog_body_unknown",
 )
 
 _ERROR_PRESENTATIONS: dict[ErrorCode, ErrorPresentation] = {
-    ErrorCode.SSL_VERIFY_FAILED: ErrorPresentation(
-        batch_label="ошибка проверки TLS",
-        dialog_title="Ошибка проверки TLS",
-        dialog_body=(
-            "Не удалось установить доверенное соединение с «{host}» и прочитать сертификат.\n\n"
-            "Проверьте настройку TLS_VERIFY: системные корни Windows, отключение проверки или путь к PEM-файлу "
-            "корневого сертификата вашей организации. Файл корня не заменяет самоподписанный сертификат сайта — "
-            "на сервере нужен сертификат, выданный доверенным центром сертификации."
-        ),
+    ErrorCode.SSL_VERIFY_FAILED: _ep(
+        "error_batch_ssl_verify",
+        "error_dialog_title_ssl_verify",
+        "error_dialog_body_ssl_verify",
     ),
-    ErrorCode.TIMEOUT: ErrorPresentation(
-        batch_label="таймаут",
-        dialog_title="Нет ответа от сервера",
-        dialog_body=(
-            "Сервер «{host}» не ответил по TLS в отведённое время.\n\n"
-            "Проверьте доступность узла, порт и сетевые ограничения."
-        ),
+    ErrorCode.TIMEOUT: _ep(
+        "error_batch_timeout",
+        "error_dialog_title_timeout",
+        "error_dialog_body_timeout",
     ),
-    ErrorCode.NO_PEER_CERT: ErrorPresentation(
-        batch_label="нет сертификата",
-        dialog_title="Сертификат не получен",
-        dialog_body="Узел «{host}» не прислал сертификат при TLS-рукопожатии. Проверьте порт и настройки сервера.",
+    ErrorCode.NO_PEER_CERT: _ep(
+        "error_batch_no_peer_cert",
+        "error_dialog_title_no_peer_cert",
+        "error_dialog_body_no_peer_cert",
     ),
-    ErrorCode.CERT_PARSE_FAILED: ErrorPresentation(
-        batch_label="ошибка разбора сертификата",
-        dialog_title="Не удалось прочитать сертификат",
-        dialog_body=(
-            "Не удалось разобрать сертификат узла «{host}» и определить срок действия.\n\n"
-            "Подробности — в журнале приложения (папка logs)."
-        ),
+    ErrorCode.CERT_PARSE_FAILED: _ep(
+        "error_batch_cert_parse_failed",
+        "error_dialog_title_cert_parse_failed",
+        "error_dialog_body_cert_parse_failed",
     ),
-    ErrorCode.CONNECTION_ERROR: ErrorPresentation(
-        batch_label="ошибка подключения",
-        dialog_title="Ошибка подключения",
-        dialog_body="Не удалось подключиться к «{host}». Проверьте адрес, порт и сеть. Подробности — в журнале (logs).",
+    ErrorCode.CONNECTION_ERROR: _ep(
+        "error_batch_connection_error",
+        "error_dialog_title_connection_error",
+        "error_dialog_body_connection_error",
     ),
-    ErrorCode.UNKNOWN_ERROR: ErrorPresentation(
-        batch_label="неизвестная ошибка",
-        dialog_title="Ошибка проверки",
-        dialog_body="Проверка «{host}» завершилась с ошибкой. Подробности — в журнале приложения (папка logs).",
-    ),
+    ErrorCode.UNKNOWN_ERROR: _UNKNOWN_KEYS,
 }
 
 
 def get_error_presentation(code: ErrorCode | None) -> ErrorPresentation:
     if code is None:
-        return _DEFAULT_UNKNOWN
-    return _ERROR_PRESENTATIONS.get(
-        code,
-        ErrorPresentation(
-            batch_label=code.value,
-            dialog_title="Ошибка проверки",
-            dialog_body="Проверка «{host}» завершилась с ошибкой (код: " + code.value + ").",
-        ),
+        return _UNKNOWN_KEYS
+    if code in _ERROR_PRESENTATIONS:
+        return _ERROR_PRESENTATIONS[code]
+    return ErrorPresentation(
+        batch_label_key=code.value,
+        dialog_title_key="error_dialog_title_unknown",
+        dialog_body_key="error_dialog_body_unknown_code",
     )
 
 
 def error_batch_label(code: ErrorCode | None) -> str:
-    return get_error_presentation(code).batch_label
+    ep = get_error_presentation(code)
+    return _(ep.batch_label_key)
 
 
 def build_error_dialog(code: ErrorCode, host: str) -> tuple[str, str]:
-    p = get_error_presentation(code)
-    return p.dialog_title, p.dialog_body.format(host=host)
+    ep = get_error_presentation(code)
+    body_key = ep.dialog_body_key
+    if body_key == "error_dialog_body_unknown_code":
+        body = _(body_key, code=code.value)
+    else:
+        body = _(body_key, host=host)
+    return _(ep.dialog_title_key), body
