@@ -9,11 +9,7 @@ RUN apt-get update \
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-COPY pyproject.toml ./
-COPY config ./config
-COPY core ./core
-COPY notifiers ./notifiers
-COPY main.py ./
+COPY . .
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir .
