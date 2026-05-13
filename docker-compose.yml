@@ -1,0 +1,11 @@
+services:
+  ssl-checker:
+    build: .
+    working_dir: /app
+    environment:
+      # При первом запуске только планировщик; первая проверка — в DAILY_BATCH_HOUR:MINUTE (не сразу при старте).
+      RUN_BATCH_ON_START: "false"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./logs:/app/logs
+    command: ["python", "main.py", "--schedule"]
