@@ -73,6 +73,7 @@ uv run python main.py --help
 | `--json` | Output result to **stdout** in JSON (single object for one host, array for multiple). Without `--json` — human-readable output to log and dialogs/notifications per application rules. |
 | `--notify-always` | Force send notification to corporate API/Mattermost **even if everything is fine** (channel debugging). With **`--batch`** — full summary report; for one-time check without `--batch` — message to API even with "green" certificate (Windows window on full OK is not shown). **Incompatible** with `--schedule`. |
 | `--batch` | One run: all hosts from list, summary report to log; to API — only if there is **a reason** for hosts (see [API / Mattermost Notifications](#api--mattermost-notifications)) unless **`--notify-always`** is set. **Incompatible** with `--site`. Exit code: `0` — all hosts without issues (expiry and chain), `1` — at least one host requires attention (expired, thresholds, chain, TLS/network error, etc.). |
+| `--lang EN\|RU` | Interface language (default from `LANGUAGE` in `.env` or `ru`). |
 | `--schedule` | Scheduler: every day at time from `.env`, optional batch on start. **Incompatible** with `--site`, `--json`, and `--notify-always`. |
 
 Modes `--batch` and `--schedule` are mutually exclusive (group in `argparse`).
@@ -163,6 +164,7 @@ Minimum for sending: `SEND_NOTIFICATIONS=true`, URL, key, label and **at least o
 | `TLS_READ_EXPIRY_ON_VERIFY_FAIL` | After verify error, retry without verification and read only expiry. |
 | `SCHEDULER_TIMEZONE` | IANA timezone for `--schedule`; `tzdata` package is installed in Docker image (see Dockerfile). |
 | `DAILY_BATCH_HOUR`, `DAILY_BATCH_MINUTE` | Daily batch time in `--schedule` mode. |
+| `LANGUAGE` | Interface language: `en` or `ru` (default). |
 | `RUN_BATCH_ON_START` | Run batch immediately on scheduler start (`true`/`false`). |
 
 ## Module Structure
