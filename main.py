@@ -15,8 +15,22 @@ class _CliHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDesc
     """Подписи с дефолтами + epilog с переносами строк как в исходнике."""
 
 
+def _lang_from_argv() -> str | None:
+    """Читает --lang из argv до ArgumentParser, чтобы --help был на выбранном языке."""
+    allowed = frozenset(get_available_langs())
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a == "--lang" and i + 1 < len(argv):
+            cand = argv[i + 1].strip().lower()
+            return cand if cand in allowed else None
+        if a.startswith("--lang="):
+            cand = a.split("=", 1)[1].strip().lower()
+            return cand if cand in allowed else None
+    return None
+
+
 def main() -> None:
-    init_translation(LANGUAGE)
+    init_translation(_lang_from_argv() or LANGUAGE)
 
     if not Path(".env").is_file():
         logger.warning(_("env_file_not_found"))
