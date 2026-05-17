@@ -25,10 +25,7 @@ from core.error_messages import build_error_dialog
 from core.logger import logger
 from core.models import AlertKind, CheckResult, ErrorCode
 from core.site_list import load_site_entries, normalize_host_port
-from core.status_policy import (
-    build_status_output,
-    format_error_notification_markdown,
-)
+from core.status_policy import build_status_output
 from locales import _
 from notifiers.notify import send_user_notification
 from notifiers.windows_notifier import show_window_alert
@@ -183,17 +180,6 @@ def check_ssl_expiry(
         return CheckResult(host, port, False, None, None, False, ErrorCode.CERT_PARSE_FAILED)
 
 
-def _api_notification_title_error(host: str, dialog_title: str) -> str:
-    return _("api_title_error", title=dialog_title, host=host)
-
-
-def _api_notification_title_status(host: str, output_title: str) -> str:
-    t = output_title.strip()
-    if t:
-        return _("api_title_status", title=t, host=host)
-    return _("api_title_fallback", host=host)
-
-
 def run_monitor(
     *,
     site: str | None = None,
@@ -201,6 +187,8 @@ def run_monitor(
     as_json: bool = False,
     force_notify_always: bool = False,
 ) -> CheckResult:
+    from core.batch_report import format_batch_report
+
     if site:
         entries = [normalize_host_port(site, site_port)]
     else:
@@ -220,10 +208,9 @@ def run_monitor(
     for result in results:
         if not result.success:
             title, body = build_error_dialog(result.error_code or ErrorCode.UNKNOWN_ERROR, result.host)
-            api_title = _api_notification_title_error(result.host, title)
             send_user_notification(
-                format_error_notification_markdown(title=title, host=result.host, body=body),
-                title=api_title,
+                format_batch_report([result]),
+                title=_("batch_report_title"),
             )
             show_window_alert(title, body, kind=AlertKind.ERROR)
             return result
@@ -240,14 +227,14 @@ def run_monitor(
         logger.info("\n{}", output.body)
         if output.kind is not AlertKind.NONE:
             send_user_notification(
-                output.notify_text,
-                title=_api_notification_title_status(result.host, output.title),
+                format_batch_report([result]),
+                title=_("batch_report_title"),
             )
             show_window_alert(output.title, output.body, kind=output.kind)
         elif force_notify_always:
             send_user_notification(
-                output.notify_text,
-                title=_api_notification_title_status(result.host, output.title),
+                format_batch_report([result]),
+                title=_("batch_report_title"),
             )
     return results[-1]
 

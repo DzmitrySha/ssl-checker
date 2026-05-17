@@ -43,7 +43,11 @@ def _format_api_error_body(r: requests.Response) -> str:
 
 
 def create_notification(*, title: str, text: str) -> bool:
-    """POST /api/v1/notifications. Возвращает True при успешном ответе (2xx). Поле link не отправляется."""
+    """POST /api/v1/notifications. Возвращает True при успешном ответе (2xx). Поле link не отправляется.
+
+    Заголовок включается в text (жирная первая строка), в JSON уходит пустой title: иначе часть
+    шлюзов отдаёт в Mattermost attachment с левой границей и отступом всего тела.
+    """
     if not SEND_NOTIFICATIONS:
         logger.info("\n[SKIP Notification API]\n{}", text[:800])
         return False
@@ -54,6 +58,13 @@ def create_notification(*, title: str, text: str) -> bool:
         )
         return False
 
+    title_stripped = (title or "").strip()
+    text_stripped = (text or "").lstrip()
+    if title_stripped:
+        payload_text = f"**{title_stripped}**\n\n{text_stripped}"
+    else:
+        payload_text = text_stripped
+
     base = NOTIFICATION_API_BASE_URL.strip().rstrip("/")
     url = f"{base}/api/v1/notifications"
     headers = {
@@ -63,8 +74,8 @@ def create_notification(*, title: str, text: str) -> bool:
     }
     user_sids = _parse_user_ids(NOTIFICATION_USER_IDS)
     body: dict[str, Any] = {
-        "title": title,
-        "text": text,
+        "title": "",
+        "text": payload_text,
         "deliverToMattermost": NOTIFICATION_DELIVER_TO_MATTERMOST,
         "userSids": user_sids,
     }
