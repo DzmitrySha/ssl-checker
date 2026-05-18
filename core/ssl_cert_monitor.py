@@ -25,7 +25,7 @@ from core.error_messages import build_error_dialog
 from core.logger import logger
 from core.models import AlertKind, CheckResult, ErrorCode
 from core.site_list import load_site_entries, normalize_host_port
-from core.status_policy import build_status_output
+from core.status_policy import build_status_output, check_result_requires_remote_alert
 from locales import _
 from notifiers.notify import send_user_notification
 from notifiers.windows_notifier import show_window_alert
@@ -225,11 +225,12 @@ def run_monitor(
             not_before_line=result.not_before_line,
         )
         logger.info("\n{}", output.body)
-        if output.kind is not AlertKind.NONE:
+        if check_result_requires_remote_alert(result):
             send_user_notification(
                 format_batch_report([result]),
                 title=_("batch_report_title"),
             )
+        if output.kind is not AlertKind.NONE:
             show_window_alert(output.title, output.body, kind=output.kind)
         elif force_notify_always:
             send_user_notification(

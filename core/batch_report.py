@@ -14,6 +14,7 @@ from core.status_policy import (
     CheckOutcomeLevel,
     _friendly_cn,
     _strip_chain_suffix,
+    check_result_requires_attention,
     check_result_requires_remote_alert,
     classify_check_result,
 )
@@ -123,13 +124,17 @@ def run_batch_report(*, force_remote_notification: bool = False) -> int:
 
     if is_any_remote_send_configured():
         need_alert = any(check_result_requires_remote_alert(r) for r in results)
-        if not force_remote_notification and not need_alert:
+        if force_remote_notification or need_alert:
+            send_user_notification(text, title=_("batch_report_title"))
+        elif any(
+            classify_check_result(r) is CheckOutcomeLevel.CHAIN_ONLY_WARNING for r in results
+        ):
+            logger.info(_("batch_skip_remote_chain_only"))
+        else:
             logger.info(
                 _("batch_all_ok", warn=WARN_DAYS, critical=CRITICAL_DAYS),
             )
-        else:
-            send_user_notification(text, title=_("batch_report_title"))
     else:
         logger.info(_("batch_notifications_off"))
 
-    return 1 if any(check_result_requires_remote_alert(r) for r in results) else 0
+    return 1 if any(check_result_requires_attention(r) for r in results) else 0
