@@ -40,9 +40,18 @@ def classify_check_result(r: CheckResult) -> CheckOutcomeLevel:
     return _classify_success_days_chain(r.days_left, r.chain_ok)
 
 
-def check_result_requires_remote_alert(r: CheckResult) -> bool:
-    """Нужно ли слать удалённое уведомление по узлу: те же пороги, что в build_status_output."""
+def check_result_requires_attention(r: CheckResult) -> bool:
+    """Узел требует внимания (код выхода, сводка): срок, цепочка или сбой проверки."""
     return classify_check_result(r) is not CheckOutcomeLevel.OK
+
+
+def check_result_requires_remote_alert(r: CheckResult) -> bool:
+    """Удалённое уведомление (API/Mattermost): срок истечения или сбой TLS/сети.
+
+    Только «цепочка не подтверждена» при зелёном сроке — не слать (шум в Mattermost).
+    """
+    level = classify_check_result(r)
+    return level not in (CheckOutcomeLevel.OK, CheckOutcomeLevel.CHAIN_ONLY_WARNING)
 
 
 def _strip_chain_suffix(s: str) -> str:
