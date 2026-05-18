@@ -20,6 +20,23 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def env_int_list(name: str, default: list[int] | None = None) -> list[int]:
+    """Список целых через запятую и/или с новой строки; пустое значение — default."""
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return list(default) if default is not None else []
+    items: list[int] = []
+    for part in value.replace("\n", ",").split(","):
+        token = part.strip()
+        if not token:
+            continue
+        try:
+            items.append(int(token))
+        except ValueError:
+            continue
+    return items if items else (list(default) if default is not None else [])
+
+
 def env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:

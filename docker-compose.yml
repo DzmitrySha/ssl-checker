@@ -3,8 +3,8 @@ services:
     build: .
     working_dir: /app
     environment:
-      # При первом запуске только планировщик; первая проверка — в DAILY_BATCH_HOUR:MINUTE (не сразу при старте).
-      RUN_BATCH_ON_START: "false"
+      # При первом запуске только планировщик; первая проверка — по DAILY_BATCH_HOURS (не сразу при старте).
+      RUN_BATCH_ON_START: "true"
     volumes:
       - ./.env:/app/.env:ro
       - ./logs:/app/logs
