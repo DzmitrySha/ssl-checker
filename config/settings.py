@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .env_parsers import env_bool, env_int, env_str
+from .env_parsers import env_bool, env_int, env_int_list, env_str
 
 load_dotenv()
 
@@ -65,6 +65,6 @@ TLS_READ_EXPIRY_ON_VERIFY_FAIL = env_bool("TLS_READ_EXPIRY_ON_VERIFY_FAIL", True
 
 # Режим `python main.py --schedule`: IANA-таймзона (нужен пакет tzdata в образе Docker)
 SCHEDULER_TIMEZONE = env_str("SCHEDULER_TIMEZONE", "Europe/Moscow")
-DAILY_BATCH_HOUR = env_int("DAILY_BATCH_HOUR", 9)
-DAILY_BATCH_MINUTE = env_int("DAILY_BATCH_MINUTE", 0)
+# Часы запуска в сутки (через запятую): DAILY_BATCH_HOURS=9,15,21 — в :00 каждого часа.
+DAILY_BATCH_HOURS = sorted({h for h in env_int_list("DAILY_BATCH_HOURS", [9]) if 0 <= h <= 23}) or [9]
 RUN_BATCH_ON_START = env_bool("RUN_BATCH_ON_START", True)
