@@ -3,7 +3,7 @@ services:
     build: .
     working_dir: /app
     environment:
-      # При первом запуске только планировщик; первая проверка — по DAILY_BATCH_HOURS (не сразу при старте).
+      # Пакет при старте контейнера; далее — по DAILY_BATCH_HOURS из .env (в :00 каждого часа).
       RUN_BATCH_ON_START: "true"
     volumes:
       - ./.env:/app/.env:ro
