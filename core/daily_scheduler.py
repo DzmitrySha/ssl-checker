@@ -7,12 +7,7 @@ import sys
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from config.settings import (
-    DAILY_BATCH_HOUR,
-    DAILY_BATCH_MINUTE,
-    RUN_BATCH_ON_START,
-    SCHEDULER_TIMEZONE,
-)
+from config.settings import DAILY_BATCH_HOURS, RUN_BATCH_ON_START, SCHEDULER_TIMEZONE
 from core.batch_report import run_batch_report
 from core.logger import logger
 from locales import _
@@ -38,17 +33,17 @@ def run_daily_scheduler() -> None:
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
 
+    hours_label = ", ".join(f"{h}:00" for h in DAILY_BATCH_HOURS)
+    cron_hours = ",".join(str(h) for h in DAILY_BATCH_HOURS)
     scheduler.add_job(
         _scheduled_batch,
         "cron",
-        hour=DAILY_BATCH_HOUR,
-        minute=DAILY_BATCH_MINUTE,
+        hour=cron_hours,
+        minute="0",
         id="daily_batch",
         replace_existing=True,
     )
-    logger.info(
-        _("scheduler_start", hour=DAILY_BATCH_HOUR, minute=DAILY_BATCH_MINUTE, tz=tz),
-    )
+    logger.info(_("scheduler_start", hours=hours_label, tz=tz))
 
     if RUN_BATCH_ON_START:
         logger.info(_("scheduler_batch_on_start"))

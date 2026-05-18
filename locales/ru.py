@@ -135,12 +135,13 @@ RU: dict[str, str] = {
     "batch_entry_subject": "**Субъект:** {subject}",
     "batch_started": "Пакетная проверка, доменов: {count}",
     "batch_all_ok": "Все домены в норме (пороги WARN_DAYS={warn}, CRITICAL_DAYS={critical}) — удалённое уведомление не отправляется.",
+    "batch_skip_remote_chain_only": "Только предупреждения «цепочка доверия не подтверждена» — в Mattermost/API не отправляем.",
     "batch_report_title": "Отчёт TLS (срок сертификатов)",
     "batch_notifications_off": "Уведомления выключены или не настроены (SEND_NOTIFICATIONS и полный набор полей в .env); отчёт только выше.",
 
     # === daily_scheduler.py ===
     "scheduler_shutdown": "Сигнал {signum}, останавливаем планировщик...",
-    "scheduler_start": "Планировщик: каждый день в {hour:02d}:{minute:02d} ({tz})",
+    "scheduler_start": "Планировщик: каждый день в {hours} ({tz})",
     "scheduler_batch_on_start": "Пакетная проверка при старте (RUN_BATCH_ON_START=true)",
     "scheduler_batch_error": "Ошибка при выполнении пакетной проверки по расписанию",
 

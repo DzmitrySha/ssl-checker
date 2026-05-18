@@ -135,12 +135,13 @@ EN: dict[str, str] = {
     "batch_entry_subject": "**Subject:** {subject}",
     "batch_started": "Batch check, domains: {count}",
     "batch_all_ok": "All domains OK (thresholds WARN_DAYS={warn}, CRITICAL_DAYS={critical}) — no remote notification sent.",
+    "batch_skip_remote_chain_only": "Only «trust chain not verified» warnings — skipping Mattermost/API notification.",
     "batch_report_title": "TLS Report (certificate expiry)",
     "batch_notifications_off": "Notifications disabled or not configured (SEND_NOTIFICATIONS and full set of fields in .env); report only above.",
 
     # === daily_scheduler.py ===
     "scheduler_shutdown": "Signal {signum}, stopping scheduler...",
-    "scheduler_start": "Scheduler: every day at {hour:02d}:{minute:02d} ({tz})",
+    "scheduler_start": "Scheduler: every day at {hours} ({tz})",
     "scheduler_batch_on_start": "Batch check on startup (RUN_BATCH_ON_START=true)",
     "scheduler_batch_error": "Error during scheduled batch check",
 
