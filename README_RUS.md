@@ -163,7 +163,7 @@ uv run ssl-checker --schedule
 | `TLS_SITE_CHECK_TRUST_ONLY_CAFILE` | Только PEM из `TLS_VERIFY`, без системного хранилища. |
 | `TLS_READ_EXPIRY_ON_VERIFY_FAIL` | После ошибки verify повтор без проверки и чтение только срока. |
 | `SCHEDULER_TIMEZONE` | IANA-таймзона для `--schedule`; в Linux-образе Docker установлен пакет `tzdata` (см. Dockerfile). |
-| `DAILY_BATCH_HOUR`, `DAILY_BATCH_MINUTE` | Время ежедневного пакета в режиме `--schedule`. |
+| `DAILY_BATCH_HOURS` | Часы пакетной проверки в режиме `--schedule` (через запятую, напр. `9,15,21`; запуск в :00). |
 | `LANGUAGE` | Язык интерфейса: `en` или `ru` (по умолчанию). |
 | `RUN_BATCH_ON_START` | Выполнить пакет сразу при старте планировщика (`true`/`false`). |
 
@@ -195,7 +195,7 @@ cp .env.example .env
 
 Файлы в репозитории: `Dockerfile`, `docker-compose.yml`. В compose смонтированы `./.env` → `/app/.env` (только чтение) и `./logs` → `/app/logs`.
 
-В `docker-compose.yml` для сервиса задано **`RUN_BATCH_ON_START=false`**: при первом запуске контейнера **немедленная пакетная проверка не выполняется** — только запускается планировщик; первая проверка по расписанию — в **`DAILY_BATCH_HOUR` / `DAILY_BATCH_MINUTE`** (`SCHEDULER_TIMEZONE` из `.env`). Чтобы при старте контейнера сразу выполнить проверку (как при локальном `RUN_BATCH_ON_START=true`), переопределите переменную в compose или удалите блок `environment` и выставьте `RUN_BATCH_ON_START=true` в `.env` (учитывайте приоритет переменных окружения в Compose).
+В `docker-compose.yml` задано **`RUN_BATCH_ON_START=true`**: при старте контейнера выполняется пакет; далее — по **`DAILY_BATCH_HOURS`** из `.env` (в :00 каждого часа, `SCHEDULER_TIMEZONE`). Чтобы не запускать пакет при старте, выставьте `RUN_BATCH_ON_START=false` в compose или `.env` (блок `environment` в compose перекрывает `.env`).
 
 ### Сервис по умолчанию (планировщик)
 
@@ -226,7 +226,7 @@ docker compose exec ssl-checker ssl-checker --site example.com --json
 
 - Оконные уведомления Windows в контейнере на Linux **не** используются; для алертов задайте корпоративный HTTP API в `.env` (`SEND_NOTIFICATIONS` и связанные переменные). Правила отправки в API те же, что у **`--batch`**: только при **поводах** по узлам; флаг **`--notify-always`** в фоновом **`--schedule`** не применяется.
 - Часовой пояс планировщика задаётся `SCHEDULER_TIMEZONE` в `.env`; в образе установлен `tzdata`.
-- Первый прогон проверки в фоновом сервисе из compose — по cron в указанное время; немедленный прогон при старте отключён через `RUN_BATCH_ON_START=false` в compose (см. выше).
+- Фоновый сервис из compose выполняет пакет при старте (`RUN_BATCH_ON_START=true` в compose) и далее по cron в часы из `DAILY_BATCH_HOURS`.
 
 ## Полезные команды uv
 

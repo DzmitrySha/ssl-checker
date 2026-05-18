@@ -163,7 +163,7 @@ Minimum for sending: `SEND_NOTIFICATIONS=true`, URL, key, label and **at least o
 | `TLS_SITE_CHECK_TRUST_ONLY_CAFILE` | Only PEM from `TLS_VERIFY`, no system store. |
 | `TLS_READ_EXPIRY_ON_VERIFY_FAIL` | After verify error, retry without verification and read only expiry. |
 | `SCHEDULER_TIMEZONE` | IANA timezone for `--schedule`; `tzdata` package is installed in Docker image (see Dockerfile). |
-| `DAILY_BATCH_HOUR`, `DAILY_BATCH_MINUTE` | Daily batch time in `--schedule` mode. |
+| `DAILY_BATCH_HOURS` | Hours for daily batch in `--schedule` mode (comma-separated, e.g. `9,15,21`; runs at :00). |
 | `LANGUAGE` | Interface language: `en` or `ru` (default). |
 | `RUN_BATCH_ON_START` | Run batch immediately on scheduler start (`true`/`false`). |
 
@@ -195,7 +195,7 @@ cp .env.example .env
 
 Files in repository: `Dockerfile`, `docker-compose.yml`. In compose, `./.env` → `/app/.env` (read-only) and `./logs` → `/app/logs` are mounted.
 
-In `docker-compose.yml` for the service, **`RUN_BATCH_ON_START=false`** is set: on first container start **immediate batch check is not performed** — only the scheduler is started; first scheduled check is at **`DAILY_BATCH_HOUR` / `DAILY_BATCH_MINUTE`** (`SCHEDULER_TIMEZONE` from `.env`). To run a check immediately on container start (as with local `RUN_BATCH_ON_START=true`), override the variable in compose or remove the `environment` block and set `RUN_BATCH_ON_START=true` in `.env` (consider environment variable priority in Compose).
+In `docker-compose.yml`, **`RUN_BATCH_ON_START=true`** runs a batch when the container starts; further runs follow **`DAILY_BATCH_HOURS`** from `.env` (at :00 each hour, `SCHEDULER_TIMEZONE`). To skip the startup batch, set `RUN_BATCH_ON_START=false` in compose or `.env` (compose `environment` overrides `.env`).
 
 ### Default Service (Scheduler)
 
@@ -226,7 +226,7 @@ docker compose exec ssl-checker ssl-checker --site example.com --json
 
 - Windows window notifications on Linux container **are not** used; for alerts, set corporate HTTP API in `.env` (`SEND_NOTIFICATIONS` and related variables). API sending rules are the same as for **`--batch`**: only on **reasons** for hosts; the **`--notify-always`** flag in background **`--schedule`** does not apply.
 - Scheduler timezone is set by `SCHEDULER_TIMEZONE` in `.env`; `tzdata` is installed in the image.
-- First check run in background service from compose is by cron at specified time; immediate run on start is disabled via `RUN_BATCH_ON_START=false` in compose (see above).
+- Background service from compose runs a batch on start (`RUN_BATCH_ON_START=true` in compose) and then on cron at hours from `DAILY_BATCH_HOURS`.
 
 ## Useful uv Commands
 
